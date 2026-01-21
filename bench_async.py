@@ -18,12 +18,11 @@ class RequestResult:
 
 class AsyncHttpBenchmark:
     def __init__(self):
-        self.semaphore = asyncio.Semaphore(10)  # Ограничение одновременных запросов
+        self.semaphore = asyncio.Semaphore(10)
         self.url_pattern = re.compile(r'^https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+')
     
     async def make_request(self, session: aiohttp.ClientSession, url: str) -> RequestResult:
-        """Асинхронный HTTP запрос с ограничением через семафор"""
-        async with self.semaphore:  # Ограничиваем количество одновременных запросов
+        async with self.semaphore:
             start_time = time.time()
             try:
                 async with session.get(url, timeout=10) as response:
@@ -43,35 +42,29 @@ class AsyncHttpBenchmark:
     
     async def benchmark_host(self, session: aiohttp.ClientSession, 
                            url: str, count: int) -> List[RequestResult]:
-        """Запускает несколько асинхронных запросов к одному хосту"""
         tasks = [self.make_request(session, url) for _ in range(count)]
         return await asyncio.gather(*tasks)
     
     async def run_benchmark(self, urls: List[str], count: int, output_file: Optional[str] = None):
-        """Основная асинхронная функция тестирования"""
-        print(f"🚀 Запуск асинхронного тестирования {len(urls)} хостов...")
-        print(f"📊 По {count} запросов на каждый хост")
-        print("⏳ Выполнение запросов параллельно...\n")
+        print(f"=== Запуск асинхронного тестирования {len(urls)} хостов ===")
+        print(f"=== По {count} запросов на каждый хост ===")
+        print("=== Выполнение запросов параллельно ===\n")
         
         start_total = time.time()
         
         async with aiohttp.ClientSession() as session:
-            # Создаем задачи для всех хостов
             all_tasks = []
             for url in urls:
                 all_tasks.append(self.benchmark_host(session, url, count))
             
-            # Запускаем все задачи параллельно
             all_results = await asyncio.gather(*all_tasks)
         
         total_time = time.time() - start_total
         
-        # Обработка и вывод результатов
         self.print_results(urls, all_results, total_time, output_file)
     
     def print_results(self, urls: List[str], all_results: List[List[RequestResult]], 
                      total_time: float, output_file: Optional[str]):
-        """Вывод результатов с подсчетом статистики"""
         
         output_lines = []
         output_lines.append("=" * 70)
@@ -87,14 +80,14 @@ class AsyncHttpBenchmark:
             errors = [r for r in results if r.error]
             times = [r.duration for r in results if r.duration > 0]
             
-            output_lines.append(f"📡 Хост: {url}")
+            output_lines.append(f"[HOST] Хост: {url}")
             output_lines.append("-" * 50)
-            output_lines.append(f"✅ Успешных:       {len(success)}")
-            output_lines.append(f"⚠️  С ошибкой (4xx/5xx): {len(failed)}")
-            output_lines.append(f"❌ Ошибок соединения: {len(errors)}")
+            output_lines.append(f"[OK] Успешных:       {len(success)}")
+            output_lines.append(f"[WARN] С ошибкой (4xx/5xx): {len(failed)}")
+            output_lines.append(f"[ERROR] Ошибок соединения: {len(errors)}")
             
             if times:
-                output_lines.append(f"⏱️  Время ответа:")
+                output_lines.append(f"[TIME] Время ответа:")
                 output_lines.append(f"   Минимальное:  {min(times):.3f} сек")
                 output_lines.append(f"   Максимальное: {max(times):.3f} сек")
                 output_lines.append(f"   Среднее:      {sum(times)/len(times):.3f} сек")
@@ -109,12 +102,11 @@ class AsyncHttpBenchmark:
         if output_file:
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(output_text)
-            print(f"📄 Результаты сохранены в файл: {output_file}")
+            print(f"[SAVED] Результаты сохранены в файл: {output_file}")
         else:
             print(output_text)
     
     async def read_urls_from_file(self, filename: str) -> List[str]:
-        """Асинхронное чтение URL из файла"""
         async with aiofiles.open(filename, 'r', encoding='utf-8') as f:
             content = await f.read()
         return [line.strip() for line in content.split('\n') 
@@ -130,38 +122,33 @@ async def main():
     
     args = parser.parse_args()
     
-    # Проверка аргументов
     if not args.hosts and not args.file:
-        print("❌ Ошибка: укажите хосты через -H или файл через -F")
+        print("ERROR: укажите хосты через -H или файл через -F")
         sys.exit(1)
     
     if args.hosts and args.file:
-        print("❌ Ошибка: укажите только один из параметров -H или -F")
+        print("ERROR: укажите только один из параметров -H или -F")
         sys.exit(1)
     
     benchmark = AsyncHttpBenchmark()
     
-    # Получение списка URL
     if args.file:
         urls = await benchmark.read_urls_from_file(args.file)
     else:
         urls = [url.strip() for url in args.hosts.split(',')]
     
-    # Валидация URL
     valid_urls = []
     for url in urls:
         if benchmark.url_pattern.match(url):
             valid_urls.append(url)
         else:
-            print(f"⚠️  Пропущен некорректный URL: {url}")
+            print(f"WARNING: Пропущен некорректный URL: {url}")
     
     if not valid_urls:
-        print("❌ Ошибка: нет валидных URL для тестирования")
+        print("ERROR: нет валидных URL для тестирования")
         sys.exit(1)
     
-    # Запуск асинхронного тестирования
     await benchmark.run_benchmark(valid_urls, args.count, args.output)
 
 if __name__ == "__main__":
-    # Запуск асинхронной программы
     asyncio.run(main())
