@@ -27,7 +27,6 @@ python bench.py -H https://example.com -C 10 -O results.txt
 - В 5-10 раз быстрее при множестве запросов
 - Использует современные технологии: `asyncio`, `aiohttp`
 - Ограничение нагрузки (semaphore)
-- Асинхронная работа с 
 
  Параллельное тестирование (рекомендуется для множества хостов)
 python bench_async.py -H https://ya.ru,https://google.com,https://github.com -C 10
