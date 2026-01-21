@@ -46,9 +46,9 @@ class AsyncHttpBenchmark:
         return await asyncio.gather(*tasks)
     
     async def run_benchmark(self, urls: List[str], count: int, output_file: Optional[str] = None):
-        print(f"=== Запуск асинхронного тестирования {len(urls)} хостов ===")
-        print(f"=== По {count} запросов на каждый хост ===")
-        print("=== Выполнение запросов параллельно ===\n")
+        print(f"Тестирование {len(urls)} хостов...")
+        print(f"Количество запросов на каждый хост: {count}")
+        print("Выполнение...\n")
         
         start_total = time.time()
         
@@ -67,12 +67,6 @@ class AsyncHttpBenchmark:
                      total_time: float, output_file: Optional[str]):
         
         output_lines = []
-        output_lines.append("=" * 70)
-        output_lines.append("РЕЗУЛЬТАТЫ АСИНХРОННОГО ТЕСТИРОВАНИЯ СЕРВЕРОВ")
-        output_lines.append("=" * 70)
-        output_lines.append(f"Общее время выполнения: {total_time:.2f} сек")
-        output_lines.append(f"Количество хостов: {len(urls)}")
-        output_lines.append("=" * 70 + "\n")
         
         for url, results in zip(urls, all_results):
             success = [r for r in results if r.success]
@@ -80,31 +74,34 @@ class AsyncHttpBenchmark:
             errors = [r for r in results if r.error]
             times = [r.duration for r in results if r.duration > 0]
             
-            output_lines.append(f"[HOST] Хост: {url}")
-            output_lines.append("-" * 50)
-            output_lines.append(f"[OK] Успешных:       {len(success)}")
-            output_lines.append(f"[WARN] С ошибкой (4xx/5xx): {len(failed)}")
-            output_lines.append(f"[ERROR] Ошибок соединения: {len(errors)}")
+            output_lines.append("=" * 60)
+            output_lines.append(f"Host: {url}")
+            output_lines.append("-" * 60)
+            output_lines.append(f"Success:              {len(success)}")
+            output_lines.append(f"Failed:               {len(failed)}")
+            output_lines.append(f"Errors:               {len(errors)}")
             
             if times:
-                output_lines.append(f"[TIME] Время ответа:")
-                output_lines.append(f"   Минимальное:  {min(times):.3f} сек")
-                output_lines.append(f"   Максимальное: {max(times):.3f} сек")
-                output_lines.append(f"   Среднее:      {sum(times)/len(times):.3f} сек")
+                output_lines.append(f"Min:                  {min(times):.3f} сек")
+                output_lines.append(f"Max:                  {max(times):.3f} сек")
+                output_lines.append(f"Avg:                  {sum(times)/len(times):.3f} сек")
+            else:
+                output_lines.append("Min:                  0.000 сек")
+                output_lines.append("Max:                  0.000 сек")
+                output_lines.append("Avg:                  0.000 сек")
             
-            if errors:
-                output_lines.append(f"   Ошибки: {errors[0].error[:50]}...")
-            
-            output_lines.append("=" * 70 + "\n")
+            output_lines.append("=" * 60 + "\n")
         
         output_text = "\n".join(output_lines)
         
         if output_file:
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(output_text)
-            print(f"[SAVED] Результаты сохранены в файл: {output_file}")
+            print(f"Результаты сохранены в файл: {output_file}")
         else:
             print(output_text)
+        
+        print(f"\nОбщее время тестирования: {total_time:.2f} сек")
     
     async def read_urls_from_file(self, filename: str) -> List[str]:
         async with aiofiles.open(filename, 'r', encoding='utf-8') as f:
@@ -113,7 +110,7 @@ class AsyncHttpBenchmark:
                 if line.strip() and not line.startswith('#')]
 
 async def main():
-    parser = argparse.ArgumentParser(description='Асинхронный бенчмарк HTTP серверов')
+    parser = argparse.ArgumentParser(description='Тестирование доступности серверов по HTTP')
     parser.add_argument('-H', '--hosts', help='Хосты через запятую (без пробелов)')
     parser.add_argument('-F', '--file', help='Файл со списком URL (по одному на строку)')
     parser.add_argument('-C', '--count', type=int, default=1, 
@@ -123,11 +120,11 @@ async def main():
     args = parser.parse_args()
     
     if not args.hosts and not args.file:
-        print("ERROR: укажите хосты через -H или файл через -F")
+        print("Ошибка: укажите хосты через -H или файл через -F")
         sys.exit(1)
     
     if args.hosts and args.file:
-        print("ERROR: укажите только один из параметров -H или -F")
+        print("Ошибка: укажите только один из параметров -H или -F")
         sys.exit(1)
     
     benchmark = AsyncHttpBenchmark()
@@ -142,10 +139,10 @@ async def main():
         if benchmark.url_pattern.match(url):
             valid_urls.append(url)
         else:
-            print(f"WARNING: Пропущен некорректный URL: {url}")
+            print(f"Предупреждение: пропускаем некорректный URL - {url}")
     
     if not valid_urls:
-        print("ERROR: нет валидных URL для тестирования")
+        print("Ошибка: нет валидных URL для тестирования")
         sys.exit(1)
     
     await benchmark.run_benchmark(valid_urls, args.count, args.output)
